@@ -18,8 +18,8 @@ const createLeadSchema = z.object({
 });
 
 const updateLeadStatusSchema = z.object({
-    status: z.literal("CONTACTED")
-});
+  status: z.literal("CONTACTED"),
+}).strict();
 
 app.use(express.json());
 

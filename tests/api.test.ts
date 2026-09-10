@@ -196,6 +196,28 @@ it("rejects updating an already CONTACTED lead", async () => {
     expect(response.body.error).toBe("invalid_request");
   });
   
+  it("rejects extra fields when updating lead status", async () => {
+    const createdLead = await request(app)
+      .post("/api/leads")
+      .send({
+        sourceMessageId: "message-perfect",
+        product: "Desk",
+        quantity: 30,
+        material: "Oak",
+        budget: 50000,
+      });
+
+    const response = await request(app)
+      .patch(`/api/leads/${createdLead.body.id}/status`)
+      .send({
+        status: "CONTACTED",
+        extra: "not-allowed",
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe("invalid_request");
+  });
+
   it("ignores client-provided status when creating a lead", async () => {
     const response = await request(app)
       .post("/api/leads")
