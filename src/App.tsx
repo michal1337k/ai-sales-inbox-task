@@ -284,6 +284,14 @@ function PipelinePage() {
     return () => { active = false; };
   }, []);
 
+  function handleLeadUpdated(updatedLead: Lead) {
+    setLeads((current) =>
+      current.map((lead) =>
+        lead.id === updatedLead.id ? updatedLead : lead
+      )
+    );
+  }
+
   return (
     <main className="page-container">
       <section className="page-heading"><div><p className="eyebrow">Revenue view</p><h1>Pipeline</h1><p className="muted">Saved leads will appear here.</p></div><div className="metric-card"><strong>{leads.length}</strong><span>leads</span></div></section>
@@ -291,14 +299,59 @@ function PipelinePage() {
         <div className="panel-heading"><h2 id="pipeline-heading">Leads</h2></div>
         {state === "loading" && <StateMessage>Loading pipeline…</StateMessage>}
         {state === "error" && <StateMessage>Could not load the pipeline.</StateMessage>}
-        {state === "ready" && (leads.length === 0 ? <p className="state-message">No leads yet.</p> : <ul className="lead-list">{leads.map((lead) => <LeadCard key={lead.id} lead={lead} />)}</ul>)}
+        {state === "ready" && (leads.length === 0 ? <p className="state-message">No leads yet.</p> : <ul className="lead-list">{leads.map((lead) => <LeadCard key={lead.id} lead={lead} onUpdated={handleLeadUpdated}/>)}</ul>)}
       </section>
     </main>
   );
 }
 
-function LeadCard({ lead }: { lead: Lead }) {
-  return <li className="lead-card"><div><h3>{lead.product}</h3><p>{lead.quantity} unit{lead.quantity === 1 ? "" : "s"}{lead.material ? ` · ${lead.material}` : ""}</p><span className="muted">{lead.status} · {lead.budget === null ? "Budget unknown" : `${lead.budget}`}</span></div></li>;
+function LeadCard({ lead, onUpdated }: { lead: Lead; onUpdated: (lead: Lead) => void }) {
+  const [updateState, setUpdateState] =
+    useState<"idle" | "loading" | "error">("idle");
+
+  async function handleMarkAsContacted() {
+    setUpdateState("loading");
+
+    try {
+      const updatedLead = await api.updateLeadStatus(lead.id);
+      onUpdated(updatedLead);
+      setUpdateState("idle");
+    } catch {
+      setUpdateState("error");
+    }
+  }
+
+  return (
+    <li className="lead-card">
+      <div>
+        <h3>{lead.product}</h3>
+        <p>
+          {lead.quantity} unit{lead.quantity === 1 ? "" : "s"}
+          {lead.material ? ` · ${lead.material}` : ""}
+        </p>
+
+        <span className="muted">
+          {lead.status} · {lead.budget === null ? "Budget unknown" : `${lead.budget}`}
+        </span>
+
+        {lead.status === "NEW" && (
+          <button
+            type="button"
+            onClick={handleMarkAsContacted}
+            disabled={updateState === "loading"}
+          >
+            {updateState === "loading" ? "Updating…" : "Mark as contacted"}
+          </button>
+        )}
+
+        {updateState === "error" && (
+          <p role="alert">
+            Could not update the lead status.
+          </p>
+        )}
+      </div>
+    </li>
+  );
 }
 
 export function App() {
