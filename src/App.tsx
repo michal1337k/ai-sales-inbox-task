@@ -238,7 +238,7 @@ function DetailPage({ messageId }: { messageId: string }) {
                 type="button"
                 className="button button-secondary"
                 onClick={handleExtract}
-                disabled={extractState === "loading"}
+                disabled={extractState === "loading" || saveState === "saving"}
               >
                 {extractState === "loading" ? "Extracting…" : "Extract with AI"}
               </button>
@@ -246,7 +246,7 @@ function DetailPage({ messageId }: { messageId: string }) {
               <button
                 type="submit"
                 className="button button-primary"
-                disabled={saveState === "saving"}
+                disabled={saveState === "saving" || extractState === "loading"}
               >
                 {saveState === "saving" ? "Saving…" : "Save lead"}
               </button>
