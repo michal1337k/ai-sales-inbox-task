@@ -37,6 +37,88 @@ describe("InboxIQ API", () => {
     expect(await prisma.lead.count()).toBe(0);
   });
 
+  it("creates a valid lead with NEW status", async () => {
+    const response = await request(app)
+      .post("/api/leads")
+      .send({
+        sourceMessageId: "message-perfect",
+        product: "Desk",
+        quantity: 30,
+        material: "Oak",
+        budget: 50000
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body.status).toBe("NEW");
+
+    const savedLead = await prisma.lead.findUnique({
+      where: { id: response.body.id },
+    });
+
+    expect(savedLead).not.toBeNull();
+    expect(savedLead).toEqual(
+      expect.objectContaining({
+        product: "Desk",
+        status: "NEW",
+      })
+    );
+
+  });
+
+  it("rejects invalid lead data without creating a record", async () => {
+    const beforeCount = await prisma.lead.count();
+    const response = await request(app)
+      .post("/api/leads")
+      .send({
+        sourceMessageId: "message-perfect",
+        product: "Desk",
+        quantity: -5,
+        material: "Oak",
+        budget: 50000
+      });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe("invalid_request");
+
+      const afterCount = await prisma.lead.count();
+      expect(afterCount).toBe(beforeCount);
+  });
+
+  it("rejects a lead for a missing source message", async () => {
+    const beforeCount = await prisma.lead.count();
+    const response = await request(app)
+      .post("/api/leads")
+      .send({
+        sourceMessageId: "message-does-not-exist",
+        product: "Desk",
+        quantity: 30,
+        material: "Oak",
+        budget: 50000
+      });
+
+      expect(response.status).toBe(404);
+      expect(response.body.error).toBe("message_not_found");
+
+      const afterCount = await prisma.lead.count();
+      expect(afterCount).toBe(beforeCount);
+  });
+
+  it("ignores client-provided status when creating a lead", async () => {
+    const response = await request(app)
+      .post("/api/leads")
+      .send({
+        sourceMessageId: "message-perfect",
+        product: "Desk",
+        quantity: 30,
+        material: "Oak",
+        budget: 50000,
+        status: "CONTACTED"
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body.status).toBe("NEW");
+  });
+
   it("returns a stable error for malformed API JSON", async () => {
     const response = await request(app)
       .post("/api/ai/extract")
