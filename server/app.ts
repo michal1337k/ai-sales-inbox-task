@@ -3,9 +3,19 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { extractForMessage, extractRequestSchema } from "./ai.js";
 import { prisma } from "./db.js";
+import { z } from "zod";
+import { randomUUID } from "node:crypto";
 
 const app = express();
 const clientDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "client");
+
+const createLeadSchema = z.object({
+    sourceMessageId: z.string().trim().min(1),
+    product: z.string().trim().min(1),
+    quantity: z.number().int().positive(),
+    material: z.string().nullable().optional(),
+    budget: z.number().finite().nonnegative().nullable().optional(),
+});
 
 app.use(express.json());
 
@@ -65,6 +75,46 @@ app.get("/api/leads", async (_request, response, next) => {
   try {
     const leads = await prisma.lead.findMany({ orderBy: { createdAt: "asc" } });
     response.json(leads.map((lead) => ({ ...lead, createdAt: lead.createdAt.toISOString() })));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/leads", async (request, response, next) => {
+  try {
+    const parsed = createLeadSchema.safeParse(request.body);
+
+    if (!parsed.success) {
+      response.status(400).json({
+        error: "invalid_request",
+        details: parsed.error.flatten(),
+      });
+      return;
+    }
+
+    const message = await prisma.message.findUnique({ where: { id: parsed.data.sourceMessageId } });
+    if (!message) {
+      response.status(404).json({ error: "message_not_found" });
+      return;
+    }
+
+    const lead = await prisma.lead.create({
+      data: {
+        id: randomUUID(),
+        sourceMessageId: parsed.data.sourceMessageId,
+        product: parsed.data.product,
+        quantity: parsed.data.quantity,
+        material: parsed.data.material ?? null,
+        budget: parsed.data.budget ?? null,
+        status: "NEW",
+      },
+    });
+
+    response.status(201).json({
+      ...lead,
+      createdAt: lead.createdAt.toISOString(),
+    });
+
   } catch (error) {
     next(error);
   }
