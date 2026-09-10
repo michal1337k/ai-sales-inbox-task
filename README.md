@@ -21,9 +21,9 @@ Express serwuje wtedy frontend i API z tego samego originu. `PORT` jest honorowa
 
 ## Widoki
 
-- `/inbox` — lista dokładnie czterech wiadomości seed.
-- `/inbox/:messageId` — sender, company, subject, body oraz placeholder `Lead extraction not implemented yet.`; kandydat dodaje formularz.
-- `/pipeline` — pusty stan `No leads yet.`; seed nie tworzy leadów.
+- `/inbox` — lista czterech wiadomości seed.
+- `/inbox/:messageId` — szczegóły wiadomości oraz edytowalny formularz ekstrakcji leada z polami `Product`, `Quantity`, `Material`, `Budget`. Formularz obsługuje deterministyczną ekstrakcję AI oraz ręczną edycję.
+- `/pipeline` — lista zapisanych leadów. Leady ze statusem `NEW` można oznaczyć jako `CONTACTED` bez przeładowania strony.
 
 ## Model danych
 
@@ -36,8 +36,9 @@ Express serwuje wtedy frontend i API z tego samego originu. `PORT` jest honorowa
 - `GET /api/messages` — surowa tablica `Message[]`.
 - `GET /api/messages/:messageId` — surowy obiekt `Message`.
 - `GET /api/leads` — surowa tablica `Lead[]`, początkowo `[]`.
-- `POST /api/leads` — celowo nie istnieje w starterze; kandydat dodaje endpoint z walidacją `sourceMessageId` i statusem `NEW` zgodnie z `TASK.md`.
-- `POST /api/ai/extract` z `{ "messageId": "..." }` — deterministyczny fixture: `message-perfect` zwraca `{ product: "Desk", quantity: 30, material: "Oak", budget: 50000 }`, `message-partial` zwraca `{ product: "Ergonomic Chair", quantity: null, material: "Black", budget: 12000 }`, `message-failure` HTTP 500, a `message-empty` dokładnie `{}`.
+- `POST /api/leads` — tworzy lead po walidacji payloadu przez Zod. Backend weryfikuje źródłową wiadomość i zawsze zapisuje nowy lead ze statusem `NEW`.
+- `POST /api/ai/extract` z `{ "messageId": "..." }` — deterministyczny fixture: `message-perfect` zwraca `{ product: "Desk", quantity: 30, material: "Oak", budget: 50000 }`, `message-partial` zwraca `{ product: "Ergonomic Chair", quantity: null, material: "Black", budget: 12000 }`, `message-failure` HTTP 500, a `message-empty` dokładnie `{}`,
+- `PATCH /api/leads/:leadId/status` — pozwala wyłącznie na zmianę statusu istniejącego leada z `NEW` na `CONTACTED`.
 
 `npm run db:reset` odtwarza bazę z wersjonowanej migracji Prisma, usuwa stare dane i seeduje dokładnie cztery wiadomości o ID `message-perfect`, `message-partial`, `message-failure`, `message-empty`. `DATABASE_URL` z procesu ma pierwszeństwo przed lokalnym fallbackiem `.env`.
 
