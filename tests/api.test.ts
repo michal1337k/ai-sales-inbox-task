@@ -65,6 +65,78 @@ describe("InboxIQ API", () => {
 
   });
 
+  it("updates a NEW lead status to CONTACTED", async () => {
+    const response = await request(app)
+      .post("/api/leads")
+      .send({
+        sourceMessageId: "message-perfect",
+        product: "Desk",
+        quantity: 30,
+        material: "Oak",
+        budget: 50000
+      });
+
+    const response2 = await request(app)
+      .patch(`/api/leads/${response.body.id}/status`)
+      .send({
+        status: "CONTACTED"
+      });
+
+    expect(response2.status).toBe(200);
+    expect(response2.body.status).toBe("CONTACTED");
+    
+    const savedLead = await prisma.lead.findUnique({
+      where: { id: response.body.id },
+    });
+
+    expect(savedLead).toEqual(
+      expect.objectContaining({
+        status: "CONTACTED",
+      })
+    );
+  });
+  
+it("returns 404 when updating a missing lead", async () => {
+  const response = await request(app)
+    .patch("/api/leads/non-existing-lead/status")
+    .send({
+      status: "CONTACTED",
+    });
+
+  expect(response.status).toBe(404);
+  expect(response.body.error).toBe("lead_not_found");
+});
+
+it("rejects updating an already CONTACTED lead", async () => {
+  const createdLead = await request(app)
+    .post("/api/leads")
+    .send({
+      sourceMessageId: "message-perfect",
+      product: "Desk",
+      quantity: 30,
+      material: "Oak",
+      budget: 50000,
+    });
+
+  const firstUpdate = await request(app)
+    .patch(`/api/leads/${createdLead.body.id}/status`)
+    .send({
+      status: "CONTACTED",
+    });
+
+  expect(firstUpdate.status).toBe(200);
+  expect(firstUpdate.body.status).toBe("CONTACTED");
+
+  const secondUpdate = await request(app)
+    .patch(`/api/leads/${createdLead.body.id}/status`)
+    .send({
+      status: "CONTACTED",
+    });
+
+  expect(secondUpdate.status).toBe(409);
+  expect(secondUpdate.body.error).toBe("invalid_status_transition");
+});
+
   it("rejects invalid lead data without creating a record", async () => {
     const beforeCount = await prisma.lead.count();
     const response = await request(app)

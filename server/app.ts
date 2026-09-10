@@ -17,6 +17,10 @@ const createLeadSchema = z.object({
     budget: z.number().finite().nonnegative().nullable().optional(),
 });
 
+const updateLeadStatusSchema = z.object({
+    status: z.literal("CONTACTED")
+});
+
 app.use(express.json());
 
 app.use((error: unknown, request: Request, response: Response, next: NextFunction) => {
@@ -113,6 +117,41 @@ app.post("/api/leads", async (request, response, next) => {
     response.status(201).json({
       ...lead,
       createdAt: lead.createdAt.toISOString(),
+    });
+
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch("/api/leads/:leadId/status", async (request, response, next) => {
+  try {
+    const parsed = updateLeadStatusSchema.safeParse(request.body);
+    if (!parsed.success) {
+      response.status(400).json({ error: "invalid_request", details: parsed.error.flatten() });
+      return;
+    }
+
+    const lead = await prisma.lead.findUnique({ where: { id: request.params.leadId } });
+
+    if (!lead) {
+      response.status(404).json({ error: "lead_not_found" });
+      return;
+    }
+
+    if (lead.status !== "NEW"){
+      response.status(409).json({ error: "invalid_status_transition" });
+      return;
+    }
+
+    const updatedLead = await prisma.lead.update({
+      where: { id: lead.id },
+      data: { status: parsed.data.status }
+    });
+
+    response.status(200).json({
+      ...updatedLead,
+      createdAt: updatedLead.createdAt.toISOString(),
     });
 
   } catch (error) {
