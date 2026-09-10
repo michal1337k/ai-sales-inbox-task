@@ -165,9 +165,9 @@ function DetailPage({ messageId }: { messageId: string }) {
         </article>
         <aside className="panel" aria-label="Lead extraction">
           <p className="eyebrow">Lead details</p>
-
-          <form onSubmit={handleSave}>
-            <div>
+          <p className="muted form-description">Review the extracted details before saving the lead.</p>
+          <form className="lead-form" onSubmit={handleSave}>
+            <div className="form-field">
               <label htmlFor="product">Product</label>
               <input
                 id="product"
@@ -183,7 +183,7 @@ function DetailPage({ messageId }: { messageId: string }) {
               />
             </div>
 
-            <div>
+            <div className="form-field">
               <label htmlFor="quantity">Quantity</label>
               <input
                 id="quantity"
@@ -201,7 +201,7 @@ function DetailPage({ messageId }: { messageId: string }) {
               />
             </div>
 
-            <div>
+            <div className="form-field">
               <label htmlFor="material">Material</label>
               <input
                 id="material"
@@ -216,7 +216,7 @@ function DetailPage({ messageId }: { messageId: string }) {
               />
             </div>
 
-            <div>
+            <div className="form-field">
               <label htmlFor="budget">Budget</label>
               <input
                 id="budget"
@@ -232,35 +232,40 @@ function DetailPage({ messageId }: { messageId: string }) {
                 }
               />
             </div>
-            <button
-              type="button"
-              onClick={handleExtract}
-              disabled={extractState === "loading"}
-            >
-              {extractState === "loading" ? "Extracting…" : "Extract with AI"}
-            </button>
 
-            <button
-              type="submit"
-              disabled={saveState === "saving"}
-            >
-              {saveState === "saving" ? "Saving…" : "Save lead"}
-            </button>
+            <div className="form-actions">
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={handleExtract}
+                disabled={extractState === "loading"}
+              >
+                {extractState === "loading" ? "Extracting…" : "Extract with AI"}
+              </button>
+
+              <button
+                type="submit"
+                className="button button-primary"
+                disabled={saveState === "saving"}
+              >
+                {saveState === "saving" ? "Saving…" : "Save lead"}
+              </button>
+            </div>
 
             {extractState === "error" && (
-              <p role="alert">
+              <p className="form-message error" role="alert">
                 Could not extract lead details. You can still fill the form manually.
               </p>
             )}
 
             {saveState === "error" && (
-              <p role="alert">
+              <p className="form-message error" role="alert">
                 Could not save the lead. Check the form and try again.
               </p>
             )}
 
             {saveState === "success" && (
-              <p role="status">
+              <p className="form-message success" role="status">
                 Lead saved successfully.
               </p>
             )}
@@ -323,8 +328,9 @@ function LeadCard({ lead, onUpdated }: { lead: Lead; onUpdated: (lead: Lead) => 
 
   return (
     <li className="lead-card">
-      <div>
+      <div className="lead-card-content">
         <h3>{lead.product}</h3>
+
         <p>
           {lead.quantity} unit{lead.quantity === 1 ? "" : "s"}
           {lead.material ? ` · ${lead.material}` : ""}
@@ -333,23 +339,24 @@ function LeadCard({ lead, onUpdated }: { lead: Lead; onUpdated: (lead: Lead) => 
         <span className="muted">
           {lead.status} · {lead.budget === null ? "Budget unknown" : `${lead.budget}`}
         </span>
-
-        {lead.status === "NEW" && (
-          <button
-            type="button"
-            onClick={handleMarkAsContacted}
-            disabled={updateState === "loading"}
-          >
-            {updateState === "loading" ? "Updating…" : "Mark as contacted"}
-          </button>
-        )}
-
-        {updateState === "error" && (
-          <p role="alert">
-            Could not update the lead status.
-          </p>
-        )}
       </div>
+
+      {lead.status === "NEW" && (
+        <button
+          className="lead-status-button"
+          type="button"
+          onClick={handleMarkAsContacted}
+          disabled={updateState === "loading"}
+        >
+          {updateState === "loading" ? "Updating…" : "Mark as contacted"}
+        </button>
+      )}
+
+      {updateState === "error" && (
+        <p className="form-message error" role="alert">
+          Could not update the lead status.
+        </p>
+      )}
     </li>
   );
 }
