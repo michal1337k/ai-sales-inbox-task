@@ -18,3 +18,18 @@ export type Message = {
   body: string;
   createdAt: string;
 };
+
+export type LeadExtraction = {
+  product?: string | null;
+  quantity?: number | null;
+  material?: string | null;
+  budget?: number | null;
+};
+
+export type CreateLeadPayload = {
+  sourceMessageId: string;
+  product: string;
+  quantity: number;
+  material: string | null;
+  budget: number | null;
+};

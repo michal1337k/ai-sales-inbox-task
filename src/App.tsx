@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { api } from "./api";
 import type { Lead, Message } from "./types";
 
@@ -73,6 +73,14 @@ function MessageRow({ message }: { message: Message }) {
 function DetailPage({ messageId }: { messageId: string }) {
   const [message, setMessage] = useState<Message | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
+  const [form, setForm] = useState({
+    product: "",
+    quantity: "",
+    material: "",
+    budget: "",
+  });
+  const [extractState, setExtractState] = useState<"idle" | "loading" | "error">("idle");
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "success" | "error">("idle");
 
   useEffect(() => {
     let active = true;
@@ -81,6 +89,63 @@ function DetailPage({ messageId }: { messageId: string }) {
     }).catch(() => active && setState("error"));
     return () => { active = false; };
   }, [messageId]);
+
+  async function handleExtract() {
+    setExtractState("loading");
+
+    try {
+      const extraction = await api.extractLead(messageId);
+
+      setForm((current) => ({
+        product:
+          current.product !== ""
+            ? current.product
+            : extraction.product ?? "",
+
+        quantity:
+          current.quantity !== ""
+            ? current.quantity
+            : extraction.quantity == null
+              ? ""
+              : String(extraction.quantity),
+
+        material:
+          current.material !== ""
+            ? current.material
+            : extraction.material ?? "",
+
+        budget:
+          current.budget !== ""
+            ? current.budget
+            : extraction.budget == null
+              ? ""
+              : String(extraction.budget),
+      }));
+
+      setExtractState("idle");
+    } catch {
+      setExtractState("error");
+    }
+  }
+
+  async function handleSave(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaveState("saving");
+
+    try {
+      await api.createLead({
+        sourceMessageId: messageId,
+        product: form.product,
+        quantity: Number(form.quantity),
+        material: form.material === "" ? null : form.material,
+        budget: form.budget === "" ? null : Number(form.budget),
+      });
+
+      setSaveState("success");
+    } catch {
+      setSaveState("error");
+    }
+  }
 
   if (state === "loading") return <main className="page-container"><StateMessage>Loading message…</StateMessage></main>;
   if (state === "error" || !message) return <main className="page-container"><StateMessage>Message not found.</StateMessage></main>;
@@ -98,9 +163,114 @@ function DetailPage({ messageId }: { messageId: string }) {
           </dl>
           <div className="message-body">{message.body}</div>
         </article>
-        <aside className="panel placeholder-panel" aria-label="Lead extraction status">
-          <p className="eyebrow">Next step</p>
-          <p className="placeholder" role="status">Lead extraction not implemented yet.</p>
+        <aside className="panel" aria-label="Lead extraction">
+          <p className="eyebrow">Lead details</p>
+          <p className="muted form-description">Review the extracted details before saving the lead.</p>
+          <form className="lead-form" onSubmit={handleSave}>
+            <div className="form-field">
+              <label htmlFor="product">Product</label>
+              <input
+                id="product"
+                type="text"
+                required
+                value={form.product}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    product: event.target.value,
+                  }))
+                }
+              />
+            </div>
+
+            <div className="form-field">
+              <label htmlFor="quantity">Quantity</label>
+              <input
+                id="quantity"
+                type="number"
+                required
+                min={1}
+                step={1}
+                value={form.quantity}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    quantity: event.target.value,
+                  }))
+                }
+              />
+            </div>
+
+            <div className="form-field">
+              <label htmlFor="material">Material</label>
+              <input
+                id="material"
+                type="text"
+                value={form.material}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    material: event.target.value,
+                  }))
+                }
+              />
+            </div>
+
+            <div className="form-field">
+              <label htmlFor="budget">Budget</label>
+              <input
+                id="budget"
+                type="number"
+                min={0}
+                step="any"
+                value={form.budget}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    budget: event.target.value,
+                  }))
+                }
+              />
+            </div>
+
+            <div className="form-actions">
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={handleExtract}
+                disabled={extractState === "loading" || saveState === "saving"}
+              >
+                {extractState === "loading" ? "Extracting…" : "Extract with AI"}
+              </button>
+
+              <button
+                type="submit"
+                className="button button-primary"
+                disabled={saveState === "saving" || extractState === "loading"}
+              >
+                {saveState === "saving" ? "Saving…" : "Save lead"}
+              </button>
+            </div>
+
+            {extractState === "error" && (
+              <p className="form-message error" role="alert">
+                Could not extract lead details. You can still fill the form manually.
+              </p>
+            )}
+
+            {saveState === "error" && (
+              <p className="form-message error" role="alert">
+                Could not save the lead. Check the form and try again.
+              </p>
+            )}
+
+            {saveState === "success" && (
+              <p className="form-message success" role="status">
+                Lead saved successfully.
+              </p>
+            )}
+
+          </form>
         </aside>
       </section>
     </main>
@@ -119,6 +289,14 @@ function PipelinePage() {
     return () => { active = false; };
   }, []);
 
+  function handleLeadUpdated(updatedLead: Lead) {
+    setLeads((current) =>
+      current.map((lead) =>
+        lead.id === updatedLead.id ? updatedLead : lead
+      )
+    );
+  }
+
   return (
     <main className="page-container">
       <section className="page-heading"><div><p className="eyebrow">Revenue view</p><h1>Pipeline</h1><p className="muted">Saved leads will appear here.</p></div><div className="metric-card"><strong>{leads.length}</strong><span>leads</span></div></section>
@@ -126,14 +304,61 @@ function PipelinePage() {
         <div className="panel-heading"><h2 id="pipeline-heading">Leads</h2></div>
         {state === "loading" && <StateMessage>Loading pipeline…</StateMessage>}
         {state === "error" && <StateMessage>Could not load the pipeline.</StateMessage>}
-        {state === "ready" && (leads.length === 0 ? <p className="state-message">No leads yet.</p> : <ul className="lead-list">{leads.map((lead) => <LeadCard key={lead.id} lead={lead} />)}</ul>)}
+        {state === "ready" && (leads.length === 0 ? <p className="state-message">No leads yet.</p> : <ul className="lead-list">{leads.map((lead) => <LeadCard key={lead.id} lead={lead} onUpdated={handleLeadUpdated}/>)}</ul>)}
       </section>
     </main>
   );
 }
 
-function LeadCard({ lead }: { lead: Lead }) {
-  return <li className="lead-card"><div><h3>{lead.product}</h3><p>{lead.quantity} unit{lead.quantity === 1 ? "" : "s"}{lead.material ? ` · ${lead.material}` : ""}</p><span className="muted">{lead.status} · {lead.budget === null ? "Budget unknown" : `${lead.budget}`}</span></div></li>;
+function LeadCard({ lead, onUpdated }: { lead: Lead; onUpdated: (lead: Lead) => void }) {
+  const [updateState, setUpdateState] =
+    useState<"idle" | "loading" | "error">("idle");
+
+  async function handleMarkAsContacted() {
+    setUpdateState("loading");
+
+    try {
+      const updatedLead = await api.updateLeadStatus(lead.id);
+      onUpdated(updatedLead);
+      setUpdateState("idle");
+    } catch {
+      setUpdateState("error");
+    }
+  }
+
+  return (
+    <li className="lead-card">
+      <div className="lead-card-content">
+        <h3>{lead.product}</h3>
+
+        <p>
+          {lead.quantity} unit{lead.quantity === 1 ? "" : "s"}
+          {lead.material ? ` · ${lead.material}` : ""}
+        </p>
+
+        <span className="muted">
+          {lead.status} · {lead.budget === null ? "Budget unknown" : `${lead.budget}`}
+        </span>
+      </div>
+
+      {lead.status === "NEW" && (
+        <button
+          className="lead-status-button"
+          type="button"
+          onClick={handleMarkAsContacted}
+          disabled={updateState === "loading"}
+        >
+          {updateState === "loading" ? "Updating…" : "Mark as contacted"}
+        </button>
+      )}
+
+      {updateState === "error" && (
+        <p className="form-message error" role="alert">
+          Could not update the lead status.
+        </p>
+      )}
+    </li>
+  );
 }
 
 export function App() {
